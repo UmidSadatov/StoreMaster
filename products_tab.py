@@ -4,8 +4,8 @@ import time
 
 
 def save_product(
-        page: ft.Page,
-        barcode,
+        event: ft.ControlEvent,
+        barcode: str,
         name,
         description,
         cost_price,
@@ -38,31 +38,23 @@ def save_product(
             )
 
         search_product_in_products_table(
+            event,
             ProductTab_ProductSearchTextField.value,
-            page
         )
 
-        SavedAlert.open = True
-        page.update()
-        time.sleep(0.5)
-        SavedAlert.open = False
-        EditionColumn.visible = False
-        ProductTab_ProductSearchTextField.visible = True
-        ProductsListView.visible = True
-        AddNewProductButton.visible = True
-        page.update()
+        close_product_edit_form(event)
 
     except:
         SavingErrorAlert.open = True
-        page.update()
+        event.page.update()
         time.sleep(3)
         SavingErrorAlert.open = False
-        page.update()
+        event.page.update()
 
 
 def open_product_edit_form(
+        event: ft.ControlEvent,
         title: str,
-        page: ft.Page,
         barcode=None,
         name=None,
         description=None,
@@ -72,6 +64,7 @@ def open_product_edit_form(
         final_price=None,
         product_id=None
 ):
+    page = event.page
     ProductTab_ProductSearchTextField.visible = False
     ProductsListView.visible = False
     AddNewProductButton.visible = False
@@ -103,8 +96,8 @@ def open_product_edit_form(
     page.update()
 
     SaveButton.on_click = lambda event: save_product(
-        page,
-        barcode=int(BarCodeTextField.value),
+        event,
+        barcode=str(BarCodeTextField.value),
         name=NameTextField.value,
         description=DescriptionTextField.value,
         cost_price=int(CostPriceTextField.value),
@@ -117,17 +110,17 @@ def open_product_edit_form(
     page.update()
 
 
-def open_form_function(row: ft.DataRow, page: ft.Page):
+def open_form_function(event: ft.ControlEvent, row: ft.DataRow):
     spans_value_list = [
         span.text
         for span in row.cells[0].content.spans
     ]
     barcode_str = "".join(spans_value_list)
-    product_dict = db.get_products_dict()[int(barcode_str)]
+    product_dict = db.get_products_dict()[str(barcode_str)]
     # markup_sum, markup_percent =
     # re.findall(r'\d+', row.cells[4].content.value)
-    open_product_edit_form("Редактировать товар",
-                           page,
+    open_product_edit_form(event,
+                            "Редактировать товар",
                            barcode=str(product_dict['barcode']),
                            name=str(product_dict['name']),
                            description=str(
@@ -142,7 +135,8 @@ def open_form_function(row: ft.DataRow, page: ft.Page):
                            )
 
 
-def search_product_in_products_table(text: str, page: ft.Page):
+def search_product_in_products_table(event: ft.ControlEvent, text: str):
+    page = event.page
     found_products = db.get_products_by_barcode_or_name(text)
     Products_DataTable.rows = make_product_table_rows_list(
         found_products,
@@ -150,17 +144,17 @@ def search_product_in_products_table(text: str, page: ft.Page):
     )
     for nrow in Products_DataTable.rows:
         nrow.cells[-1].content.on_click = \
-            lambda event, this_row=nrow: open_form_function(this_row, page)
+            lambda event, this_row=nrow: open_form_function(event, this_row)
     page.update()
 
 
-def clear_product_search_text_field(page: ft.Page):
+def clear_product_search_text_field(event: ft.ControlEvent):
     ProductTab_ProductSearchTextField.value = ""
-    search_product_in_products_table("", page)
-    page.update()
+    search_product_in_products_table(event, "")
+    event.page.update()
 
 
-def close_product_edit_form(page: ft.Page):
+def close_product_edit_form(event: ft.ControlEvent):
     EditionColumn.visible = False
 
     ProductTab_ProductSearchTextField.visible = True
@@ -171,7 +165,7 @@ def close_product_edit_form(page: ft.Page):
     AddNewProductButton.visible = True
     SaveButton.disabled = True
 
-    page.update()
+    event.page.update()
 
 
 def is_num(n):
@@ -324,12 +318,17 @@ ProductTab_ProductSearchTextFieldClearIconButton = ft.IconButton(
     ft.icons.CLEAR_ROUNDED,
     icon_color=ft.colors.RED,
     bgcolor=ft.colors.GREY_200,
-    hover_color=ft.colors.GREY_300
+    hover_color=ft.colors.GREY_300,
+    on_click=lambda event: clear_product_search_text_field(event)
 )
 
 ProductTab_ProductSearchTextField = ft.TextField(
     label="Товар",
     suffix=ProductTab_ProductSearchTextFieldClearIconButton,
+    on_change=lambda event: search_product_in_products_table(
+            event,
+            ProductTab_ProductSearchTextField.value,
+        )
 )
 
 ProductTab_ProductSearchRow = ft.Row(
@@ -366,23 +365,31 @@ def highlight_text_part(text, part):
             ]
         )
     elif text[:len(part)] == part and text[-len(part):] == part:
-        return ft.Text(
-            spans=[
-                ft.TextSpan(
-                    part,
-                    style=ft.TextStyle(
-                        bgcolor="#bbbbbb"
+        if text != part:
+            return ft.Text(
+                spans=[
+                    ft.TextSpan(
+                        part,
+                        style=ft.TextStyle(
+                            bgcolor="#bbbbbb"
+                        )
+                    ),
+                    ft.TextSpan(text[len(part):-len(part)]),
+                    ft.TextSpan(
+                        part,
+                        style=ft.TextStyle(
+                            bgcolor="#bbbbbb"
+                        )
                     )
-                ),
-                ft.TextSpan(text[len(part):-len(part)]),
-                ft.TextSpan(
-                    part,
-                    style=ft.TextStyle(
-                        bgcolor="#bbbbbb"
-                    )
+                ]
+            )
+        else:
+            return ft.Text(
+                text,
+                style=ft.TextStyle(
+                    bgcolor="#bbbbbb"
                 )
-            ]
-        )
+            )
     else:
         return ft.Text(spans=[ft.TextSpan(text)])
 
@@ -452,6 +459,16 @@ def make_product_table_rows_list(
                 ft.DataCell(ft.Text(product['final_price'])),
 
                 ft.DataCell(
+                    ft.Row(
+                        [ft.Text(
+                            product['stock_quantity'],
+                            text_align=ft.TextAlign.CENTER,
+                        )],
+                        alignment=ft.MainAxisAlignment.CENTER
+                    )
+                ),
+
+                ft.DataCell(
                     ft.IconButton(
                         icon=ft.icons.EDIT_SHARP,
                         bgcolor="#ddddff"
@@ -512,7 +529,15 @@ Products_DataTable = ft.DataTable(
             )
         ),
 
-        ft.DataColumn(label=ft.Text("Ред."))
+        ft.DataColumn(
+            label=ft.Text(
+                "В наличии",
+                text_align=ft.TextAlign.CENTER,
+                weight=ft.FontWeight.BOLD
+            )
+        ),
+
+        ft.DataColumn(label=ft.Text(""))
     ],
     heading_row_color=ft.colors.LIGHT_BLUE_ACCENT,
     rows=make_product_table_rows_list(db.get_products()),
@@ -540,7 +565,8 @@ AddNewProductButton = ft.ElevatedButton(
     bgcolor=ft.colors.BLUE,
     color=ft.colors.WHITE,
     height=50,
-    width=300
+    width=300,
+    on_click=lambda event: open_product_edit_form(event=event, title="Новый товар")
 )
 
 CostPriceTextField = ft.TextField(label="Себестоимость", multiline=False)
@@ -566,7 +592,8 @@ CancelButton = ft.ElevatedButton(
     text="Отмена",
     icon=ft.icons.CANCEL,
     bgcolor=ft.colors.RED,
-    color=ft.colors.WHITE
+    color=ft.colors.WHITE,
+    on_click=lambda event: close_product_edit_form(event)
 )
 
 TitleText = ft.Text(
@@ -651,6 +678,34 @@ ProductsTabContentColumn = ft.Column(
     horizontal_alignment=ft.CrossAxisAlignment.CENTER,
 )
 
+
+BarCodeTextField.on_change = \
+    lambda event: validate_save_edition_form_setting(event)
+NameTextField.on_change = \
+    lambda event: validate_save_edition_form_setting(event)
+DescriptionTextField.on_change = \
+    lambda event: validate_save_edition_form_setting(event)
+CostPriceTextField.on_change = \
+    lambda event: validate_save_edition_form_setting(event)
+MarkupSumTextField.on_change = \
+    lambda event: validate_save_edition_form_setting(event)
+MarkupPercentTextField.on_change = \
+    lambda event: validate_save_edition_form_setting(event)
+PriceTextField.on_change = \
+    lambda event: validate_save_edition_form_setting(event)
+
+for row in Products_DataTable.rows:
+    row.cells[-1].content.on_click = \
+        lambda event, nrow=row: open_form_function(event, nrow)
+
+
+
 # ProductTab_ProductSearchTextField.visible = False
 # ProductsListView.visible = False
 # AddNewProductButton.visible = False
+
+
+
+
+
+
