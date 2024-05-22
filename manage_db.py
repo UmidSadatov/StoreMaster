@@ -131,6 +131,38 @@ def update_product(
     db_con.commit()
 
 
+def get_logs(
+        name_or_barcode,
+        action,
+        period="today"
+):
+    db_con = sqlite3.connect('ProductSales.db')
+    db_con.row_factory = sqlite3.Row
+    cursor = db_con.cursor()
+
+    length = 0
+
+    if period == "week":
+        length = 7
+    elif period == "month":
+        length = 30
+
+    cursor.execute(
+        f"""
+        SELECT barcode, name, action, 
+        init_quantity, action_quantity, final_quantity  
+        FROM Logs INNER JOIN Products ON Logs.product_id=Products.id 
+        WHERE (name LIKE %{name_or_barcode} OR barcode LIKE %{name_or_barcode} 
+        OR name LIKE {name_or_barcode}% OR barcode LIKE {name_or_barcode}%) 
+        {f'AND action={action}' if action != 'all' else ''} 
+        {f"AND date BETWEEN date('now', -{length} days) AND date('now')" 
+        if period != 'all' else ''} 
+        """
+    )
+    logs = cursor.fetchall()
+    db_con.commit()
+    return [dict(log) for log in logs]
+
 # def search_product_by_barcode_or_name(text:str):
 
 

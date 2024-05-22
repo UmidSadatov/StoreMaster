@@ -3,6 +3,7 @@ import time
 import flet_core
 
 from products_tab import *
+from home_tab import *
 import manage_db as db
 
 
@@ -33,30 +34,31 @@ def main(page: ft.Page):
         indicator_tab_size=True,
         label_color=ft.colors.BLUE_ACCENT,
         on_change=lambda event: set_focus(event),
-        overlay_color=ft.colors.GREY,
+        overlay_color=ft.colors.GREY_300,
         # overlay_color={
         #     ft.MaterialState.FOCUSED: ft.colors.BLACK,
         # },
         scrollable=False,
         tabs=[
             ft.Tab(
-                text="Продажа",
-                icon=ft.icons.MONEY_ROUNDED,
-                content=ft.Text("ПРОДАЖА"),
+                text="Главное",
+                icon=ft.icons.HOME,
+                content=HomeTabContentContainer
             ),
             ft.Tab(
                 text="Приход",
                 icon=ft.icons.ADD,
                 content=ft.Text("ПРИХОД"),
+                visible=False
             ),
             ft.Tab(
                 text="Отчет",
-                icon=ft.icons.DOCUMENT_SCANNER,
-                content=ft.Text("ОТЧЕТ"),
+                icon=ft.icons.BOOK,
+                content=ft.Text("ОТЧЕТ")
             ),
             ft.Tab(
                 text="Товары",
-                icon=ft.icons.BOOK_ROUNDED,
+                icon=ft.icons.TABLE_ROWS,
                 content=ProductsTabContentColumn,
             ),
         ],
